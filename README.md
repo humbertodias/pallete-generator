@@ -1,16 +1,7 @@
-# HAMOOPI Palette Generator
+[![CD](https://github.com/humbertodias/pallete-generator/actions/workflows/cd.yml/badge.svg)](https://github.com/humbertodias/pallete-generator/actions/workflows/cd.yml)
+# Palette Generator
 
 This is an independent tool for generating palette files for the HAMOOPI fighting game engine.
-
-## Version History
-
-- **v02 (2025)** - SDL2 Version
-  - Converted from Allegro 4 to SDL2
-  - Uses PNG images instead of PCX format
-  - Full SDL2 implementation with hardware acceleration
-  
-- **v01 (2019)** - Allegro 4 Version (original)
-  - By Daniel Moura (danielmouradesigner@gmail.com)
 
 ## Building
 
@@ -28,8 +19,7 @@ This is an independent tool for generating palette files for the HAMOOPI fightin
 make build
 ```
 
-
-The executable `PALLETEGEN` will be created in the parent directory (`pallete-generator/`).
+The executable `PALLETEGEN` will be created 
 
 ## Usage
 
@@ -53,9 +43,6 @@ The tool expects the following image files in the `data/` directory:
 **SDL2 version:** Uses PNG format
 - `pal0.png` through `pal8.png` - Source palette images
 
-**Allegro 4 version:** Uses PCX format
-- `pal0.pcx` through `pal8.pcx` - Source palette images
-
 Each slot represents a color button:
 - pal0: Light Punch (LP)
 - pal1: Medium Punch (MP)
@@ -66,8 +53,6 @@ Each slot represents a color button:
 - pal6: SELECT button
 - pal7: START button
 - pal8: HOLD button
-
-**Note:** The SDL2 version automatically converts .pcx extensions to .png when loading files for backward compatibility.
 
 ## Output Files
 
