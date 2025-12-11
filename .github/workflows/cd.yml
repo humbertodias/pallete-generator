@@ -63,16 +63,6 @@ jobs:
           vcpkg install sdl2:x86-windows sdl2-image:x86-windows sdl2-ttf:x86-windows
         shell: bash
 
-      - name: Install Qt6 (Windows - SDL2)
-        if: matrix.os == 'windows-latest' && matrix.backend == 'sdl2'
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.7.*'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2019_64'
-          cache: true
-
       # Build with SDL2
       - name: Build (SDL2)
         if: matrix.backend == 'sdl2'
