@@ -1,0 +1,302 @@
+name: CD
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }} with ${{ matrix.backend }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        backend: [sdl2]
+        include:
+          - os: ubuntu-latest
+            platform_name: linux
+          - os: macos-latest
+            platform_name: macos
+          - os: windows-latest
+            platform_name: windows
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install dependencies (Linux - SDL2)
+        if: matrix.os == 'ubuntu-latest' && matrix.backend == 'sdl2'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
+
+      - name: Install dependencies (macOS - SDL2)
+        if: matrix.os == 'macos-latest' && matrix.backend == 'sdl2'
+        run: |
+          brew install sdl2 sdl2_image sdl2_ttf
+
+      # Windows dependencies
+      - name: Cache vcpkg packages (Windows - SDL2)
+        if: matrix.os == 'windows-latest' && matrix.backend == 'sdl2'
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:/vcpkg/installed
+            C:/vcpkg/packages
+          key: ${{ runner.os }}-vcpkg-sdl2-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-sdl2-
+            ${{ runner.os }}-vcpkg-
+
+      - name: Setup vcpkg (Windows - SDL2)
+        if: matrix.os == 'windows-latest' && matrix.backend == 'sdl2'
+        run: |
+          vcpkg integrate install
+          vcpkg install sdl2:x86-windows sdl2-image:x86-windows sdl2-ttf:x86-windows
+        shell: bash
+
+      - name: Install Qt6 (Windows - SDL2)
+        if: matrix.os == 'windows-latest' && matrix.backend == 'sdl2'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.*'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+          cache: true
+
+      # Build with SDL2
+      - name: Build (SDL2)
+        if: matrix.backend == 'sdl2'
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            # Use Win32 (x86) architecture for Windows SDL2 builds to match vcpkg installation
+            cmake -B build -A Win32 -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          else
+            cmake -B build
+          fi
+          cmake --build build --config Release
+        shell: bash
+
+      # Package artifacts
+      - name: Package artifacts (Linux/macOS)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p artifacts
+          # Copy executable (CMake post-build copies to root, but check build dir first)
+          if [ -f "build/PALLETEGEN" ]; then
+            cp build/PALLETEGEN artifacts/
+          elif [ -f "PALLETEGEN" ]; then
+            cp PALLETEGEN artifacts/
+          else
+            echo "Error: Executable not found"
+            exit 1
+          fi
+          
+          # Copy tools if they were built
+          if [ "${{ matrix.backend }}" == "sdl2" ]; then
+            # Copy pallete-generator (SDL2 backend)
+            if [ -f "build/tools/pallete-generator/PALLETEGEN" ]; then
+              cp build/tools/pallete-generator/PALLETEGEN artifacts/
+              echo "Added PALLETEGEN to artifacts"
+            fi
+          
+          fi
+          
+          # Copy data files
+          cp -r data artifacts/
+          cp README.md artifacts/
+          
+          # Copy shared libraries for SDL2 backend
+          if [ "${{ matrix.backend }}" == "sdl2" ]; then
+            echo "Copying SDL2 shared libraries..."
+            mkdir -p artifacts/lib
+          
+            if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+              # Linux: Copy shared libraries
+              # Find and copy SDL2 libraries
+              for lib in libSDL2-2.0.so.0 libSDL2_image-2.0.so.0 libSDL2_ttf-2.0.so.0; do
+                if [ -f "/usr/lib/x86_64-linux-gnu/$lib" ]; then
+                  cp "/usr/lib/x86_64-linux-gnu/$lib" artifacts/lib/
+                elif [ -f "/usr/lib/$lib" ]; then
+                  cp "/usr/lib/$lib" artifacts/lib/
+                else
+                  echo "Warning: $lib not found"
+                fi
+              done
+          
+              # Create a launcher script that sets LD_LIBRARY_PATH
+              {
+                echo '#!/bin/bash'
+                echo 'DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
+                echo 'export LD_LIBRARY_PATH="$DIR/lib:$LD_LIBRARY_PATH"'
+                echo 'exec "$DIR/PALLETEGEN" "$@"'
+              } > artifacts/PALLETEGEN.sh
+              chmod +x artifacts/PALLETEGEN.sh
+              echo "Created launcher script PALLETEGEN.sh"
+          
+            elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+              # macOS: Copy dylibs from Homebrew
+              BREW_PREFIX=$(brew --prefix)
+              echo "Homebrew prefix: $BREW_PREFIX"
+          
+              # Copy SDL2 frameworks/dylibs
+              for lib in libSDL2-2.0.0.dylib libSDL2_image-2.0.0.dylib libSDL2_ttf-2.0.0.dylib; do
+                if [ -f "$BREW_PREFIX/lib/$lib" ]; then
+                  cp "$BREW_PREFIX/lib/$lib" artifacts/lib/
+                  # Update the library path to use @rpath for better compatibility
+                  chmod +w "artifacts/lib/$lib"
+                  install_name_tool -id "@rpath/$lib" "artifacts/lib/$lib" 2>/dev/null || echo "Warning: Could not update install name for $lib"
+                else
+                  echo "Warning: $lib not found in $BREW_PREFIX/lib/"
+                fi
+              done
+          
+              # Update executable to use @rpath
+              if [ -f "artifacts/PALLETEGEN" ]; then
+                chmod +w artifacts/PALLETEGEN
+                # Add @executable_path/lib to rpath
+                install_name_tool -add_rpath "@executable_path/lib" artifacts/PALLETEGEN 2>/dev/null || echo "Warning: Could not add rpath to executable"
+                # Update library references in the executable
+                for lib in libSDL2-2.0.0.dylib libSDL2_image-2.0.0.dylib libSDL2_ttf-2.0.0.dylib; do
+                  install_name_tool -change "$BREW_PREFIX/lib/$lib" "@rpath/$lib" artifacts/PALLETEGEN 2>/dev/null || true
+                done
+              fi
+          
+              # Create a launcher script as fallback for systems with SIP restrictions
+              {
+                echo '#!/bin/bash'
+                echo 'DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
+                echo '"$DIR/PALLETEGEN" "$@" || {'
+                echo '  export DYLD_LIBRARY_PATH="$DIR/lib:$DYLD_LIBRARY_PATH"'
+                echo '  exec "$DIR/PALLETEGEN" "$@"'
+                echo '}'
+              } > artifacts/PALLETEGEN.sh
+              chmod +x artifacts/PALLETEGEN.sh
+              echo "Created launcher script PALLETEGEN.sh"
+            fi
+          
+            echo "Shared library files in artifacts/lib:"
+            ls -la artifacts/lib/ 2>/dev/null || echo "No library files found"
+          fi
+          
+          # Create tarball
+          cd artifacts
+          tar czf ../PALLETEGEN-${{ matrix.platform_name }}-${{ matrix.backend }}.tar.gz *
+        shell: bash
+
+      - name: Package artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir -p artifacts
+          # Copy executable (check build dirs in order of likelihood)
+          if [ -f "build/Release/PALLETEGEN.exe" ]; then
+            cp build/Release/PALLETEGEN.exe artifacts/
+          elif [ -f "build/PALLETEGEN.exe" ]; then
+            cp build/PALLETEGEN.exe artifacts/
+          elif [ -f "PALLETEGEN.exe" ]; then
+            cp PALLETEGEN.exe artifacts/
+          else
+            echo "Error: Executable not found"
+            exit 1
+          fi
+          
+          # Copy tools if they were built (SDL2 backend only)
+          if [ "${{ matrix.backend }}" == "sdl2" ]; then
+            # Copy pallete-generator
+            if [ -f "build/tools/pallete-generator/Release/PALLETEGEN.exe" ]; then
+              cp build/tools/pallete-generator/Release/PALLETEGEN.exe artifacts/
+              echo "Added PALLETEGEN.exe to artifacts"
+            elif [ -f "build/tools/pallete-generator/PALLETEGEN.exe" ]; then
+              cp build/tools/pallete-generator/PALLETEGEN.exe artifacts/
+              echo "Added PALLETEGEN.exe to artifacts"
+            fi
+
+          
+          # Copy data files
+          cp -r data artifacts/
+          cp README.md artifacts/
+          
+          # Copy SDL2 shared libraries for SDL2 backend
+          if [ "${{ matrix.backend }}" == "sdl2" ]; then
+            echo "Copying SDL2 DLLs from vcpkg..."
+            # vcpkg installs DLLs in the installed/x86-windows/bin directory
+            VCPKG_BIN="$VCPKG_INSTALLATION_ROOT/installed/x86-windows/bin"
+            if [ -d "$VCPKG_BIN" ]; then
+              cp "$VCPKG_BIN/SDL2.dll" artifacts/ 2>/dev/null || echo "Warning: SDL2.dll not found"
+              cp "$VCPKG_BIN/SDL2_image.dll" artifacts/ 2>/dev/null || echo "Warning: SDL2_image.dll not found"
+              cp "$VCPKG_BIN/SDL2_ttf.dll" artifacts/ 2>/dev/null || echo "Warning: SDL2_ttf.dll not found"
+              cp "$VCPKG_BIN/inih.dll" artifacts/ 2>/dev/null || echo "Warning: inih.dll not found"
+              # SDL2_image dependencies
+              cp "$VCPKG_BIN/jpeg62.dll" artifacts/ 2>/dev/null || echo "Warning: jpeg62.dll not found"
+              cp "$VCPKG_BIN/libpng16.dll" artifacts/ 2>/dev/null || echo "Warning: libpng16.dll not found"
+              cp "$VCPKG_BIN/zlib1.dll" artifacts/ 2>/dev/null || echo "Warning: zlib1.dll not found"
+              cp "$VCPKG_BIN/tiff.dll" artifacts/ 2>/dev/null || echo "Warning: tiff.dll not found"
+              cp "$VCPKG_BIN/libwebp.dll" artifacts/ 2>/dev/null || echo "Warning: libwebp.dll not found"
+              # SDL2_ttf dependencies
+              cp "$VCPKG_BIN/freetype.dll" artifacts/ 2>/dev/null || echo "Warning: freetype.dll not found"
+              cp "$VCPKG_BIN/bz2.dll" artifacts/ 2>/dev/null || echo "Warning: bz2.dll not found"
+              cp "$VCPKG_BIN/brotlicommon.dll" artifacts/ 2>/dev/null || echo "Warning: brotlicommon.dll not found"
+              cp "$VCPKG_BIN/brotlidec.dll" artifacts/ 2>/dev/null || echo "Warning: brotlidec.dll not found"
+              echo "DLL files in artifacts:"
+              ls -la artifacts/*.dll 2>/dev/null || echo "No DLL files found in artifacts"
+            else
+              echo "Warning: vcpkg bin directory not found at $VCPKG_BIN"
+            fi
+          fi
+          
+          # Create zip for Windows
+          cd artifacts
+          7z a -tzip ../PALLETEGEN-${{ matrix.platform_name }}-${{ matrix.backend }}.zip *
+        shell: bash
+
+      # Upload artifacts for all builds
+      - name: Upload artifacts (Linux/macOS)
+        if: matrix.os != 'windows-latest'
+        uses: actions/upload-artifact@v5
+        with:
+          name: PALLETEGEN-${{ matrix.platform_name }}-${{ matrix.backend }}
+          path: PALLETEGEN-${{ matrix.platform_name }}-${{ matrix.backend }}.tar.gz
+          retention-days: 30
+
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v5
+        with:
+          name: PALLETEGEN-${{ matrix.platform_name }}-${{ matrix.backend }}
+          path: PALLETEGEN-${{ matrix.platform_name }}-${{ matrix.backend }}.zip
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
