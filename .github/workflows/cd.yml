@@ -209,7 +209,7 @@ jobs:
               cp build/tools/pallete-generator/PALLETEGEN.exe artifacts/
               echo "Added PALLETEGEN.exe to artifacts"
             fi
-
+          fi    
           
           # Copy data files
           cp -r data artifacts/
@@ -224,7 +224,6 @@ jobs:
               cp "$VCPKG_BIN/SDL2.dll" artifacts/ 2>/dev/null || echo "Warning: SDL2.dll not found"
               cp "$VCPKG_BIN/SDL2_image.dll" artifacts/ 2>/dev/null || echo "Warning: SDL2_image.dll not found"
               cp "$VCPKG_BIN/SDL2_ttf.dll" artifacts/ 2>/dev/null || echo "Warning: SDL2_ttf.dll not found"
-              cp "$VCPKG_BIN/inih.dll" artifacts/ 2>/dev/null || echo "Warning: inih.dll not found"
               # SDL2_image dependencies
               cp "$VCPKG_BIN/jpeg62.dll" artifacts/ 2>/dev/null || echo "Warning: jpeg62.dll not found"
               cp "$VCPKG_BIN/libpng16.dll" artifacts/ 2>/dev/null || echo "Warning: libpng16.dll not found"
