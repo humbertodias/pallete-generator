@@ -1,0 +1,82 @@
+# HAMOOPI Palette Generator
+
+This is an independent tool for generating palette files for the HAMOOPI fighting game engine.
+
+## Version History
+
+- **v02 (2025)** - SDL2 Version
+  - Converted from Allegro 4 to SDL2
+  - Uses PNG images instead of PCX format
+  - Full SDL2 implementation with hardware acceleration
+  
+- **v01 (2019)** - Allegro 4 Version (original)
+  - By Daniel Moura (danielmouradesigner@gmail.com)
+
+## Building
+
+### Requirements
+
+**For SDL2 version (default):**
+- CMake 3.10 or higher
+- SDL2
+- SDL2_image
+
+### Build Instructions
+
+**SDL2 version (default):**
+```bash
+make build
+```
+
+
+The executable `PALLETEGEN` will be created in the parent directory (`pallete-generator/`).
+
+## Usage
+
+1. Run the application:
+   ```bash
+   ./PALLETEGEN
+   ```
+
+2. Place your palette source images (pal0-pal8) in the `data/` directory as PNG files
+
+3. Press **F1** to generate a new palette from the source images
+
+4. Press **ESC** to exit
+
+5. Press **Alt+Enter** to toggle fullscreen mode
+
+## Input Files
+
+The tool expects the following image files in the `data/` directory:
+
+**SDL2 version:** Uses PNG format
+- `pal0.png` through `pal8.png` - Source palette images
+
+**Allegro 4 version:** Uses PCX format
+- `pal0.pcx` through `pal8.pcx` - Source palette images
+
+Each slot represents a color button:
+- pal0: Light Punch (LP)
+- pal1: Medium Punch (MP)
+- pal2: Hard Punch (HP)
+- pal3: Light Kick (LK)
+- pal4: Medium Kick (MK)
+- pal5: Hard Kick (HK)
+- pal6: SELECT button
+- pal7: START button
+- pal8: HOLD button
+
+**Note:** The SDL2 version automatically converts .pcx extensions to .png when loading files for backward compatibility.
+
+## Output Files
+
+The tool generates:
+- `data/pallete.png` (SDL2 version) or `data/pallete.pcx` (Allegro version) - The final compiled palette containing colors from all slots
+
+## Technical Notes
+
+- The SDL2 version uses hardware-accelerated rendering
+- All image operations are done in 32-bit ARGB format
+- The tool preserves the original Allegro-style API internally for easy conversion
+- Magenta (255, 0, 255) is used as the transparent color key

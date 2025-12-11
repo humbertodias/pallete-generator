@@ -1,0 +1,45 @@
+# --- Build directories ---
+build/
+cmake-build*/
+CMakeFiles/
+CMakeCache.txt
+
+# --- CMake outputs ---
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# --- Compiled object files ---
+*.o
+*.obj
+
+# --- Libraries ---
+*.a
+*.so
+*.so.*
+*.dylib
+*.lib
+*.dll
+
+# --- Executables ---
+*.exe
+*.out
+*.app
+
+# --- Logs & temp files ---
+*.log
+*.tmp
+
+# --- IDE / Editor files ---
+# VS Code
+.vscode/
+# CLion
+.idea/
+# Vim
+*.swp
+*.swo
+# Emacs
+*~
+\#*\#
+
