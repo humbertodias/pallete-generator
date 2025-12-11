@@ -72,7 +72,7 @@ Each slot represents a color button:
 ## Output Files
 
 The tool generates:
-- `data/pallete.png` (SDL2 version) or `data/pallete.pcx` (Allegro version) - The final compiled palette containing colors from all slots
+- `data/pallete.png` (SDL2 version) - The final compiled palette containing colors from all slots
 
 ## Technical Notes
 
