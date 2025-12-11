@@ -1,4 +1,7 @@
 [![CD](https://github.com/humbertodias/pallete-generator/actions/workflows/cd.yml/badge.svg)](https://github.com/humbertodias/pallete-generator/actions/workflows/cd.yml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/humbertodias/pallete-generator)
+![GitHub all downloads](https://img.shields.io/github/downloads/humbertodias/pallete-generator/total)
+
 # Palette Generator
 
 This is an independent tool for generating palette files for the HAMOOPI fighting game engine.
