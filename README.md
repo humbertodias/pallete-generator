@@ -4,7 +4,10 @@
 
 # Palette Generator
 
-This is an independent tool for generating palette files for the HAMOOPI fighting game engine.
+This is an independent tool for generating palette files for the [HAMOOPI](https://github.com/humbertodias/hamoopi/) fighting game engine.
+
+<img width="752" height="620" alt="image" src="https://github.com/user-attachments/assets/9e217bd5-bafb-4b15-92a2-a7c69a2e4f4a" />
+
 
 ## Building
 
